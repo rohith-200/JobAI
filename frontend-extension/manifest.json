@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "JobAI — Everything You Need",
+  "version": "0.1.0",
+  "description": "Personalized resume tuning, outreach drafts, and interview prep — right in the browser.",
+  "action": {
+    "default_title": "JobAI",
+    "default_popup": "src/popup/popup.html"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "*://www.linkedin.com/*",
+    "*://linkedin.com/*",
+    "http://localhost:8000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://www.linkedin.com/*", "*://linkedin.com/*"],
+      "js": ["assets/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {},
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["*://*/*"]
+    }
+  ]
+}
