@@ -1,4 +1,4 @@
-# backend-api/services/pdf_parser.py
+#backend-api/services/pdf_parser.py
 import fitz  # PyMuPDF
 
 def extract_text_from_pdf(pdf_file_path: str) -> str:

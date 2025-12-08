@@ -1,6 +1,6 @@
 # backend-api/main.py
 from fastapi import FastAPI
-from routers.job_analysis import router as job_router
+from backend.routers.job_analysis import router as job_router
 
 app = FastAPI(
     title="JobAI Backend API",
@@ -14,3 +14,7 @@ app.include_router(job_router, prefix="/api", tags=["Job Analysis"])
 @app.get("/")
 def home():
     return {"message": "JobAI Backend is running 🚀"}
+
+from backend.routers.job_analysis_full import router as full_analysis_router
+
+app.include_router(full_analysis_router, prefix="/jobai")

@@ -1,7 +1,7 @@
 # backend-api/routers/job_analysis.py
 from fastapi import APIRouter, UploadFile, File, Form
-from services.pdf_parser import extract_text_from_pdf
-from services.model_inference import run_inference
+#from backend.services.pdf_parser import extract_text_from_pdf
+
 
 import os
 
@@ -23,12 +23,12 @@ async def analyze_job(
         f.write(await resume.read())
 
     # Extract resume text
-    resume_text = extract_text_from_pdf(temp_path)
+    #resume_text = extract_text_from_pdf(temp_path)
 
     # Delete temp file after extraction
     os.remove(temp_path)
 
     # Run model inference
-    result = run_inference(resume_text, job_description)
+    result = "run_inference(resume_text, job_description)"
 
     return {"status": "success", "result": result}
