@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from "react";
 import "../styles/tailwind.css";
-import ReportCard from "../components/reportcard.jsx";
 import Loader from "../components/loader.jsx";
 import { api } from "../services/api.js";
 
 export default function App() {
-  const [jd, setJd] = useState(""); // job description from content script
+  const [jd, setJd] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
-  const [report, setReport] = useState(null); // structured JSON from backend
-  const [pdfUrl, setPdfUrl] = useState(null); // blob URL for viewing/downloading
+  const [docxUrl, setDocxUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Pull JD from content script via chrome.tabs
+  // Auto-extract JD from content script
   useEffect(() => {
     (async () => {
       try {
@@ -23,16 +21,16 @@ export default function App() {
         const response = await chrome.tabs.sendMessage(tab.id, {
           type: "GET_JOB_DESCRIPTION",
         });
-        if (response && response.jd) setJd(response.jd.trim());
-      } catch {
-        // content script may not be injected on non-LinkedIn pages
-      }
+        if (response?.jd) setJd(response.jd.trim());
+      } catch {}
     })();
   }, []);
 
   async function handleAnalyze(e) {
     e.preventDefault();
     setError("");
+    setDocxUrl(null);
+
     if (!jd) {
       setError("No job description found.");
       return;
@@ -41,13 +39,16 @@ export default function App() {
       setError("Please upload your resume.");
       return;
     }
+
     try {
       setLoading(true);
-      const { data, pdfBlob } = await api.analyzeJob({ jd, resumeFile });
-      setReport(data);
-      if (pdfBlob) {
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfUrl(url);
+      const { docxBlob } = await api.analyzeJob({ jd, resumeFile });
+
+      if (docxBlob) {
+        const url = URL.createObjectURL(docxBlob);
+        setDocxUrl(url);
+      } else {
+        setError("No DOCX report returned from API.");
       }
     } catch (err) {
       setError(err.message || "Something went wrong.");
@@ -58,7 +59,7 @@ export default function App() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">JobAI — Everything You Need</h1>
+      <h1 className="text-xl font-semibold">JobAI Resume Analyzer</h1>
 
       <form onSubmit={handleAnalyze} className="space-y-3">
         <div>
@@ -86,22 +87,21 @@ export default function App() {
           disabled={loading}
           className="w-full rounded-xl border bg-black text-white py-2 text-sm disabled:opacity-60"
         >
-          {loading ? "Analyzing…" : "Analyze & Generate Report"}
+          {loading ? "Processing…" : "Generate Report"}
         </button>
       </form>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
-      {loading && <Loader label="Generating personalized report…" />}
+      {loading && <Loader label="Generating report…" />}
 
-      {report && (
-        <ReportCard
-          ats={report.ats_feedback}
-          keywords={report.keywords}
-          starBullets={report.star_bullets}
-          outreach={report.outreach}
-          interview={report.interview}
-          pdfUrl={pdfUrl}
-        />
+      {docxUrl && (
+        <a
+          href={docxUrl}
+          download="Resume Report"
+          className="block text-center rounded-xl border bg-green-600 text-white px-3 py-2 text-sm"
+        >
+          Download Resume Report
+        </a>
       )}
     </div>
   );
