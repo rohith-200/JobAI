@@ -1,11 +1,11 @@
-const BASE_URL = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const BASE_URL = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 async function analyzeJob({ jd, resumeFile }) {
   const form = new FormData();
   form.append("job_description", jd);
   form.append("resume", resumeFile);
 
-  const res = await fetch(`${BASE_URL}/analyze-full`, {
+  const res = await fetch(`${BASE_URL}/jobai/analyze-full`, {
     method: "POST",
     body: form,
   });
@@ -15,27 +15,20 @@ async function analyzeJob({ jd, resumeFile }) {
     throw new Error(text || `Request failed: ${res.status}`);
   }
 
-  // FastAPI returns JSON ONLY.
-  const data = await res.json();
+  // We ignore backend JSON since we only care about the docx file
+  await res.json();
 
-  // Validate expected fields:
-  if (!data.status || !data.downloads) {
-    throw new Error("Invalid response from server.");
+  // Always fetch resume_report.docx
+  const fileUrl = `${BASE_URL}/jobai/downloads/report_after_separator.md`;
+
+  const fileRes = await fetch(fileUrl);
+  if (!fileRes.ok) {
+    throw new Error("Could not download DOCX file.");
   }
 
-  // Optional: Download DOCX file in the frontend
-  let docxBlob = null;
-  if (data.downloads.docx) {
-    const docxRes = await fetch(`${BASE_URL}${data.downloads.docx}`);
-    if (docxRes.ok) {
-      docxBlob = await docxRes.blob();
-    }
-  }
+  const docxBlob = await fileRes.blob();
 
-  return {
-    data,
-    docxBlob, // frontend can download/save this
-  };
+  return { docxBlob };
 }
 
 export const api = { analyzeJob };
