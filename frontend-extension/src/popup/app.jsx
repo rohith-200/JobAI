@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "../styles/tailwind.css";
-import ReportCard from "../components/ReportCard.jsx";
+import ReportCard from "../components/reportcard.jsx";
 import Loader from "../components/loader.jsx";
 import { api } from "../services/api.js";
 

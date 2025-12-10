@@ -1,39 +1,41 @@
-const BASE_URL = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+const BASE_URL = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 async function analyzeJob({ jd, resumeFile }) {
   const form = new FormData();
   form.append("job_description", jd);
   form.append("resume", resumeFile);
 
-  const res = await fetch(`${BASE_URL}/api/job/analyze`, {
+  const res = await fetch(`${BASE_URL}/analyze-full`, {
     method: "POST",
     body: form,
   });
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || `Request failed: ${res.status}`);
   }
 
-  // Expecting: multipart/mixed or JSON + separate PDF endpoint.
-  // Here we assume JSON with a `pdf_url` OR binary PDF in a second call.
-  const contentType = res.headers.get("content-type") || "";
-  let data,
-    pdfBlob = null;
+  // FastAPI returns JSON ONLY.
+  const data = await res.json();
 
-  if (contentType.includes("application/json")) {
-    data = await res.json();
-    if (data?.pdf_url) {
-      const pdfRes = await fetch(data.pdf_url);
-      pdfBlob = await pdfRes.blob();
-    }
-  } else if (contentType.includes("application/pdf")) {
-    pdfBlob = await res.blob();
-    data = {};
-  } else {
-    data = await res.json().catch(() => ({}));
+  // Validate expected fields:
+  if (!data.status || !data.downloads) {
+    throw new Error("Invalid response from server.");
   }
 
-  return { data, pdfBlob };
+  // Optional: Download DOCX file in the frontend
+  let docxBlob = null;
+  if (data.downloads.docx) {
+    const docxRes = await fetch(`${BASE_URL}${data.downloads.docx}`);
+    if (docxRes.ok) {
+      docxBlob = await docxRes.blob();
+    }
+  }
+
+  return {
+    data,
+    docxBlob, // frontend can download/save this
+  };
 }
 
 export const api = { analyzeJob };

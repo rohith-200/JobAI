@@ -1,11 +1,14 @@
 import os
 import re
 import torch
+import logging
 from pathlib import Path
 from huggingface_hub import snapshot_download, login
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from docx import Document
 from backend.services.pdf_parser import extract_text_from_pdf
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class JobAnalysisService:
@@ -252,6 +255,28 @@ Rules:
 
         except Exception as e:
             return {"status": "error", "message": str(e)}
+    # ---------------------------------------------------
+    # CELL — Split report into two parts
+    # ---------------------------------------------------
+    def split_report(self, report_text: str):
+        try:
+            SEPARATOR = "Generate the full report now. Return ONLY the report text."
+
+            if SEPARATOR in report_text:
+                part_before, part_after = report_text.split(SEPARATOR, 1)
+            else:
+                # If separator not found, still return whole text in part_before
+                part_before = report_text
+                part_after = ""
+
+            return {
+                "status": "success",
+                "before": part_before.strip(),
+                "after": part_after.strip()
+            }
+
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
     # ---------------------------------------------------
     # MAIN PIPELINE (Entire Notebook Combined)
@@ -259,6 +284,7 @@ Rules:
     def analyze_f(self, resume_file_path: str, job_description: str):
         try:
             # 1. Download model if needed
+            logging.info("[analyze_f] - In to service method - Started analyzing")
             download_status = self.ensure_model_downloaded()
             if download_status["status"] == "error":
                 return download_status
@@ -273,30 +299,52 @@ Rules:
             if inputs["status"] == "error":
                 return inputs
 
-            # 4. Generate AI Report
+            # 4. Generate the full report
+            logging.info("[analyze_f] - Generating resume report")
             report = self.generate_full_resume_report(
                 jd_text=inputs["job_description"],
                 resume_text=inputs["resume_text"]
             )
+            logging.info("[analyze_f] - Generated resume report, Status - "+report["status"])
             if report["status"] == "error":
                 return report
 
-            final_text = report["response"]
+            full_report = report["response"]
 
-            # 5. Save TXT, MD, DOCX outputs
-            txt = self.save_report(final_text, "resume_report", "txt")
-            md = self.save_report(final_text, "resume_report", "md")
-            docx = self.save_report(final_text, "resume_report", "docx")
+            logging.info("[analyze_f] - Creating files")
+
+            # 5. Split into before/after sections
+            split = self.split_report(full_report)
+            if split["status"] == "error":
+                return split
+
+            before_text = split["before"]
+            after_text = split["after"]
+
+            # 6. Save the DOCX files into generated_reports/
+            before_docx = self.save_report(before_text, "report_before_separator", "docx")
+            after_docx = self.save_report(after_text, "report_after_separator", "docx")
+            after_md = self.save_report(after_text, "report_after_separator", "md")
+
+            # --- FIX: return only filenames, not full paths ---
+            before_filename = os.path.basename(before_docx.get("filepath"))
+            after_filename = os.path.basename(after_docx.get("filepath"))
+            after_md_filename = os.path.basename(after_md.get("filepath"))
+            logging.info("[analyze_f] - Done creating files and report")
 
             return {
                 "status": "success",
-                "result": final_text,
+                "full_report": full_report,
+                "before_part": before_text,
+                "after_part": after_text,
                 "downloads": {
-                    "txt": txt.get("filepath"),
-                    "md": md.get("filepath"),
-                    "docx": docx.get("filepath"),
+                    "before_docx": before_filename,
+                    "after_docx": after_filename,
+                    "after_md":after_md_filename,
                 }
             }
 
         except Exception as e:
+            logging.exception("[analyze_f] - Error!!, "+str(e))
             return {"status": "error", "message": str(e)}
+

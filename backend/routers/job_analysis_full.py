@@ -3,9 +3,17 @@
 from fastapi import APIRouter, UploadFile, File, Form
 from backend.services.job_analysis_service import JobAnalysisService
 import os
+import logging
+from fastapi.responses import FileResponse
 
 router = APIRouter()
 service = JobAnalysisService()
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
+REPORT_DIR = os.path.join(PROJECT_ROOT, "generated_reports")
+
 
 
 @router.post("/analyze-full")
@@ -27,13 +35,29 @@ async def analyze_full_report(
             f.write(await resume.read())
 
         # Run your full pipeline
+        logging.info("[analyze_full_report] - Started analyzing")
         result = service.analyze_f(temp_path, job_description)
+        logging.info("[analyze_full_report] - Done! analyzing")
 
         return result
 
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+@router.get("/downloads/{filename}")
+def download_file(filename: str):
+    BASE_REPORT_DIR = "/home/922466607/jobAI/JobAI/generated_reports"
+
+    file_path = os.path.join(BASE_REPORT_DIR, filename)
+
+    if not os.path.exists(file_path):
+        return {"error": f"File not found: {file_path}"}
+
+    return FileResponse(file_path, filename=filename)
+
+
 
 
 @router.get("/test-model")
